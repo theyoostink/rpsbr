@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Rock Paper Scissors Battle Royale</title>
+	<style type="text/css">
+		body {
+			background-color: black;
+			color: white;
+			font-family: sans-serif;
+		}
+	</style>
+</head>
+<body>
+<h1>Rock Paper Scissors Battle Royale</h1>
+<div id="canvasDiv"></div>
+<input type="checkbox" name="color" id="color-checkbox" checked>
+<label for="color-checkbox"> Display Color Box</label>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
+<script type="text/javascript">
+
+var objs = [];
+
+var canvas_width = 1000;
+var canvas_height = 800;
+var arena_width = 800;
+var arena_height = 800;
+
+var team_size = 50;
+
+var display_color_box = true;
+var dcb_checkbox = document.getElementById("color-checkbox");
+dcb_checkbox.addEventListener("change", function() {
+	if (this.checked) {
+		display_color_box = true;
+	}
+	else {
+		display_color_box = false;
+	}
+});
+
+function setup() {
+	var myCanvas = createCanvas(canvas_width, canvas_height);
+	myCanvas.parent("canvasDiv");
+
+	for (var i = 0; i < team_size * 3; i += 1) {
+		var type = "rock";
+		if (i >= team_size && i < team_size * 2) {
+			type = "paper";
+		}
+		else if (i >= team_size * 2) {
+			type = "scissors";
+		}
+		objs.push(
+			{
+				"type": type,
+				"x": Math.floor(Math.random() * 750 + 25),
+				"y": Math.floor(Math.random() * 750 + 25),
+				"width": 20,
+				"height": 20
+			}
+		);
+	}
+}
+
+function draw() {
+	background(100);
+
+	for (var i = 0; i < objs.length; i += 1) {
+		var c;
+		var t;
+		if (objs[i].type == "rock") {
+			c = color(255, 0, 0);
+			t = "✊";
+		}
+		else if (objs[i].type == "paper") {
+			c = color(0, 255, 0);
+			t = "✋";
+		}
+		else {
+			c = color(0, 0, 255);
+			t = "✌️";
+		}
+		fill(c);
+		noStroke();
+		if (display_color_box) {
+			rect(objs[i].x, objs[i].y, objs[i].width, objs[i].height);
+		}
+		textSize(20);
+		text(t, objs[i].x, objs[i].y + objs[i].height - 4);
+
+		var direction_prey = directionOfNearestPrey(objs[i], i, objs);
+		var direction_pred = directionOfNearestPredator(objs[i], i, objs);
+		var direction_x = direction_prey.x + direction_pred.x;
+		var direction_y = direction_prey.y + direction_pred.y;
+
+		if (direction_x == 0) {
+			direction_x = Math.random() < 0.5 ? -1 : 1;
+		}
+		if (direction_y == 0) {
+			direction_y = Math.random() < 0.5 ? -1 : 1;
+		}
+
+		objs[i].x += direction_x;
+		objs[i].y += direction_y;
+
+
+		if (objs[i].x < 0) {
+			objs[i].x = 0;
+		}
+		if (objs[i].x > arena_width - objs[i].width) {
+			objs[i].x = arena_width - objs[i].width;
+		}
+		if (objs[i].y < 0) {
+			objs[i].y = 0;
+		}
+		if (objs[i].y > arena_height - objs[i].height) {
+			objs[i].y = arena_height - objs[i].height;
+		}
+
+		var new_type = checkCollissions(objs[i], i, objs);
+		objs[i].type = new_type;
+	}
+
+	var rock_size = 0;
+	var paper_size = 0;
+	var scissors_size = 0;
+	for (var i = 0; i < objs.length; i += 1) {
+		if (objs[i].type == "rock") {
+			rock_size += 1;
+		}
+		else if (objs[i].type == "paper") {
+			paper_size += 1;
+		}
+		else {
+			scissors_size += 1;
+		}
+	}
+	stroke(255);
+	line(arena_width, 0, arena_width, arena_height);
+	fill(255);
+	textSize(28);
+	text("Rock: "+rock_size, arena_width + 10, 40);
+	text("Paper: "+paper_size, arena_width + 10, 120);
+	text("Scissors: "+scissors_size, arena_width + 10, 200);
+}
+
+function directionOfNearestPrey(obj, index, arr) {
+	var min_distance = arena_width * 2;
+	var min_index = -1;
+	var min_obj = {};
+	for (var i = 0; i < arr.length; i += 1) {
+		if (i == index) {
+			continue;
+		}
+		if (obj.type == "rock" && arr[i].type != "scissors") {
+			continue;
+		}
+		if (obj.type == "paper" && arr[i].type != "rock") {
+			continue;
+		}
+		if (obj.type == "scissors" && arr[i].type != "paper") {
+			continue;
+		}
+
+		var distance = Math.sqrt(Math.pow(obj.x - arr[i].x, 2) + Math.pow(obj.y - arr[i].y, 2));
+		if (distance < min_distance) {
+			min_distance = distance;
+			min_index = i;
+			min_obj = arr[i];
+		}
+	}
+	
+	if (min_index < 0) {
+		return {
+			"x": Math.random() < 0.5 ? -1 : 1,
+			"y": Math.random() < 0.5 ? -1 : 1,
+		};
+	}
+
+	return {
+		"x": Math.round((obj.x - min_obj.x) / Math.max(Math.abs(obj.x - min_obj.x), 1)) * -1,
+		"y": Math.round((obj.y - min_obj.y) / Math.max(Math.abs(obj.y - min_obj.y), 1)) * -1
+	};
+}
+
+function directionOfNearestPredator(obj, index, arr) {
+	var min_distance = arena_width * 2;
+	var min_index = -1;
+	var min_obj = {};
+	for (var i = 0; i < arr.length; i += 1) {
+		if (i == index) {
+			continue;
+		}
+		if (obj.type == "rock" && arr[i].type != "paper") {
+			continue;
+		}
+		if (obj.type == "paper" && arr[i].type != "scissors") {
+			continue;
+		}
+		if (obj.type == "scissors" && arr[i].type != "rock") {
+			continue;
+		}
+
+		var distance = Math.sqrt(Math.pow(obj.x - arr[i].x, 2) + Math.pow(obj.y - arr[i].y, 2));
+		if (distance < min_distance) {
+			min_distance = distance;
+			min_index = i;
+			min_obj = arr[i];
+		}
+	}
+	
+	if (min_index < 0) {
+		return {
+			"x": Math.random() < 0.5 ? -1 : 1,
+			"y": Math.random() < 0.5 ? -1 : 1,
+		};
+	}
+
+	return {
+		"x": Math.round((obj.x - min_obj.x) / Math.max(Math.abs(obj.x - min_obj.x), 1)),
+		"y": Math.round((obj.y - min_obj.y) / Math.max(Math.abs(obj.y - min_obj.y), 1))
+	};
+}
+
+function checkCollissions(obj, index, arr) {
+	for (var i = 0; i < arr.length; i += 1) {
+		if (i == index) {
+			continue;
+		}
+		if (obj.type == "rock" && arr[i].type == "rock") {
+			continue;
+		}
+		if (obj.type == "paper" && arr[i].type == "paper") {
+			continue;
+		}
+		if (obj.type == "scissors" && arr[i].type == "scissors") {
+			continue;
+		}
+
+		if (obj.x < arr[i].x + arr[i].width &&
+			obj.x + obj.width > arr[i].x &&
+			obj.y < arr[i].y + arr[i].height &&
+			obj.y + obj.height > arr[i].y) {
+			//Collission
+			if (obj.type == "rock" && arr[i].type == "paper") {
+				return "paper";
+			}
+			if (obj.type == "paper" && arr[i].type == "scissors") {
+				return "scissors";
+			}
+			if (obj.type == "scissors" && arr[i].type == "rock") {
+				return "rock";
+			}
+		}
+	}
+	return obj.type;
+}
+</script>
+</body>
+</html>
